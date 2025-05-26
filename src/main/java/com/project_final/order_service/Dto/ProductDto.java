@@ -10,9 +10,9 @@ public class ProductDto {
     private Integer stock;
 
     // Constructores
-    public ProductDTO() {}
+    public ProductDto() {}
 
-    public ProductDTO(Long id, String name, String description, BigDecimal price, Integer stock) {
+    public ProductDto(Long id, String name, String description, BigDecimal price, Integer stock) {
         this.id = id;
         this.name = name;
         this.description = description;

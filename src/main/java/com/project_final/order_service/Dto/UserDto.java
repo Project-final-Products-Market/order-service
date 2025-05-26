@@ -6,9 +6,9 @@ public class UserDto {
     private String email;
 
     // Constructores
-    public UserDTO() {}
+    public UserDto() {}
 
-    public UserDTO(Long id, String name, String email) {
+    public UserDto(Long id, String name, String email) {
         this.id = id;
         this.name = name;
         this.email = email;
