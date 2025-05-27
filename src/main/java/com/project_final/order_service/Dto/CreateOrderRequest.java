@@ -40,4 +40,13 @@ public class CreateOrderRequest {
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
     }
+
+    @Override
+    public String toString() {
+        return "CreateOrderRequest{" +
+                "userId=" + userId +
+                ", productId=" + productId +
+                ", quantity=" + quantity +
+                '}';
+    }
 }

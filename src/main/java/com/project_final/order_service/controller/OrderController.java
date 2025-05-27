@@ -9,7 +9,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -22,12 +24,25 @@ public class OrderController {
 
     // Crear orden
     @PostMapping
-    public ResponseEntity<Order> createOrder(@RequestBody CreateOrderRequest request) {
+    public ResponseEntity<?> createOrder(@RequestBody CreateOrderRequest request) {
         try {
+            System.out.println("=== DEBUG CREATE ORDER ===");
+            System.out.println("Request: " + request);
+            System.out.println("UserId: " + request.getUserId());
+            System.out.println("ProductId: " + request.getProductId());
+            System.out.println("Quantity: " + request.getQuantity());
             Order createdOrder = orderService.createOrder(request);
             return new ResponseEntity<>(createdOrder, HttpStatus.CREATED);
         } catch (RuntimeException e) {
-            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
+            System.err.println("Error creating order: " + e.getMessage());
+            e.printStackTrace();
+            // Retornar el mensaje de error específico
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of(
+                            "error", "Error al crear la orden",
+                            "message", e.getMessage(),
+                            "timestamp", LocalDateTime.now()
+                    ));
         }
     }
 
