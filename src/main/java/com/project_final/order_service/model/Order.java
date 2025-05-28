@@ -27,8 +27,9 @@ public class Order {
     @Column(name = "order_date")
     private LocalDateTime orderDate;
 
+    // CAMBIO: Usar @Enumerated con STRING para H2 compatibility
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "status", nullable = false)
     private OrderStatus status;
 
     @Column(name = "created_at")
