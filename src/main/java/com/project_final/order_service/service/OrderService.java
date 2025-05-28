@@ -6,6 +6,7 @@ import com.project_final.order_service.Dto.ProductDto;
 import com.project_final.order_service.Dto.UserDto;
 import com.project_final.order_service.repositories.OrderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -25,8 +26,8 @@ public class OrderService {
     private RestTemplate restTemplate;
 
     // URLs de otros servicios
-    private final String PRODUCT_SERVICE_URL = "http://product-service/api/products";
-    private final String USER_SERVICE_URL = "http://user-service/api/users";
+    private final String PRODUCT_SERVICE_URL = "http://localhost:8082/api/products";
+    private final String USER_SERVICE_URL = "http://localhost:8081/api/users";
 
     // Crear orden
     @Transactional
@@ -55,9 +56,9 @@ public class OrderService {
         Order order = new Order(request.getUserId(), request.getProductId(), request.getQuantity(), totalPrice);
 
         // Reducir stock del producto
-        if (!reduceProductStock(request.getProductId(), request.getQuantity())) {
-            throw new RuntimeException("Error al reducir stock del producto");
-        }
+        // if (!reduceProductStock(request.getProductId(), request.getQuantity())) {
+        //    throw new RuntimeException("Error al reducir stock del producto");
+        // }
 
         // Guardar orden
         order.setStatus(Order.OrderStatus.CONFIRMED);
