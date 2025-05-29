@@ -1,3 +1,4 @@
+
 package com.project_final.order_service.exceptions;
 
 import org.slf4j.Logger;
@@ -5,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -197,13 +199,20 @@ public class GlobalExceptionHandler {
 
         logger.warn("Error de validación: {}", ex.getMessage());
 
+        Map<String, String> fieldErrors = new HashMap<>();
         StringBuilder message = new StringBuilder("Errores de validación: ");
-        ex.getBindingResult().getFieldErrors().forEach(error -> {
+
+        for (FieldError error : ex.getBindingResult().getFieldErrors()) {
+            fieldErrors.put(error.getField(), error.getDefaultMessage());
             message.append(error.getField())
                     .append(" - ")
                     .append(error.getDefaultMessage())
                     .append("; ");
-        });
+        }
+
+        // Crear additionalInfo con los errores de campo
+        Map<String, Object> additionalInfo = new HashMap<>();
+        additionalInfo.put("fieldErrors", fieldErrors);
 
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .errorCode("VALIDATION_ERROR")
@@ -212,6 +221,7 @@ public class GlobalExceptionHandler {
                 .timestamp(LocalDateTime.now())
                 .path(request.getDescription(false).replace("uri=", ""))
                 .status(HttpStatus.BAD_REQUEST.value())
+                .additionalInfo(additionalInfo)
                 .build();
 
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
@@ -223,10 +233,22 @@ public class GlobalExceptionHandler {
 
         logger.error("Error de formato de datos: {}", ex.getMessage());
 
+        String message = "Formato de datos inválido";
+        String details = "Los datos enviados no pueden ser procesados. Verifique el formato JSON.";
+
+        // Detectar tipos específicos de errores de JSON
+        if (ex.getMessage().contains("JSON parse error")) {
+            message = "Error en el formato JSON";
+            details = "El JSON enviado tiene errores de sintaxis";
+        } else if (ex.getMessage().contains("Required request body is missing")) {
+            message = "Cuerpo de petición faltante";
+            details = "La petición debe incluir un cuerpo JSON válido";
+        }
+
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .errorCode("BAD_REQUEST")
-                .message("Formato de datos inválido")
-                .details("Los datos enviados no pueden ser procesados")
+                .message(message)
+                .details(details)
                 .timestamp(LocalDateTime.now())
                 .path(request.getDescription(false).replace("uri=", ""))
                 .status(HttpStatus.BAD_REQUEST.value())
@@ -241,13 +263,18 @@ public class GlobalExceptionHandler {
 
         logger.error("Parámetro faltante: {}", ex.getMessage());
 
+        Map<String, Object> additionalInfo = new HashMap<>();
+        additionalInfo.put("missingParameter", ex.getParameterName());
+        additionalInfo.put("parameterType", ex.getParameterType());
+
         ErrorResponse errorResponse = ErrorResponse.builder()
-                .errorCode("BAD_REQUEST")
+                .errorCode("MISSING_PARAMETER")
                 .message("Parámetro requerido faltante: " + ex.getParameterName())
                 .details("Faltan parámetros obligatorios en la petición")
                 .timestamp(LocalDateTime.now())
                 .path(request.getDescription(false).replace("uri=", ""))
                 .status(HttpStatus.BAD_REQUEST.value())
+                .additionalInfo(additionalInfo)
                 .build();
 
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
@@ -259,30 +286,35 @@ public class GlobalExceptionHandler {
 
         logger.error("Tipo de dato inválido: {}", ex.getMessage());
 
+        Map<String, Object> additionalInfo = new HashMap<>();
+        additionalInfo.put("parameter", ex.getName());
+        additionalInfo.put("value", ex.getValue());
+        additionalInfo.put("requiredType", ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown");
+
         ErrorResponse errorResponse = ErrorResponse.builder()
-                .errorCode("BAD_REQUEST")
+                .errorCode("INVALID_PARAMETER_TYPE")
                 .message("Tipo de dato inválido para el parámetro: " + ex.getName())
                 .details("El formato de los datos no es correcto")
                 .timestamp(LocalDateTime.now())
                 .path(request.getDescription(false).replace("uri=", ""))
                 .status(HttpStatus.BAD_REQUEST.value())
+                .additionalInfo(additionalInfo)
                 .build();
 
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
-    //  EXCEPCIÓN GENÉRICA
-
+    // EXCEPCIÓN GENÉRICA
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(
             Exception ex, WebRequest request) {
 
-        logger.error("Error inesperado: {}", ex.getMessage());
+        logger.error("Error inesperado: ", ex); // Log completo con stack trace
 
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .errorCode("INTERNAL_SERVER_ERROR")
                 .message("Error interno del servidor")
-                .details("Error interno del servidor")
+                .details("Ha ocurrido un error inesperado. Contacte al administrador del sistema.")
                 .timestamp(LocalDateTime.now())
                 .path(request.getDescription(false).replace("uri=", ""))
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
@@ -292,7 +324,6 @@ public class GlobalExceptionHandler {
     }
 
     // CLASE PARA RESPUESTA DE ERROR
-
     public static class ErrorResponse {
         private String errorCode;
         private String message;
