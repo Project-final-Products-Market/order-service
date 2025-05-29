@@ -25,7 +25,7 @@ class GlobalExceptionHandlerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    // ========== TESTS DE EXCEPCIONES ESPECÍFICAS DE ÓRDENES ==========
+    // TESTS DE EXCEPCIONES ESPECÍFICAS DE ÓRDENES
 
     @Test
     void shouldHandleOrderNotFoundException() throws Exception {
@@ -136,7 +136,7 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.status").value(503));
     }
 
-    // ========== TESTS DE EXCEPCIONES GENERALES DE SPRING ==========
+    //  TESTS DE EXCEPCIONES GENERALES DE SPRING
 
     @Test
     void shouldHandleHttpMessageNotReadableException() throws Exception {
@@ -184,7 +184,7 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.status").value(500));
     }
 
-    // ========== CONTROLADOR DE PRUEBA ==========
+    //  CONTROLADOR DE PRUEBA
 
     @RestController
     static class TestController {

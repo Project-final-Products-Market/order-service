@@ -27,7 +27,7 @@ class OrderValidationTest {
         orderService = new OrderService();
     }
 
-    // ========== TESTS DE VALIDACIÓN DE CreateOrderRequest ==========
+    // TESTS DE VALIDACIÓN DE CreateOrderRequest
 
     @Test
     @DisplayName("Debe lanzar excepción cuando CreateOrderRequest es null")
@@ -155,7 +155,7 @@ class OrderValidationTest {
         assertDoesNotThrow(() -> invokeValidateCreateOrderRequest(request));
     }
 
-    // ========== TESTS DE VALIDACIÓN DE TRANSICIONES DE ESTADO ==========
+    // TESTS DE VALIDACIÓN DE TRANSICIONES DE ESTADO
 
     @Test
     @DisplayName("Debe permitir transición de PENDING a CONFIRMED")
@@ -257,7 +257,7 @@ class OrderValidationTest {
         assertEquals(toStatus, exception.getRequestedStatus());
     }
 
-    // ========== TESTS DE VALIDACIÓN DE CANCELACIÓN ==========
+    // TESTS DE VALIDACIÓN DE CANCELACIÓN
 
     @Test
     @DisplayName("Debe permitir cancelación de orden PENDING")
@@ -295,7 +295,7 @@ class OrderValidationTest {
         assertFalse(invokeCanCancelOrder(order));
     }
 
-    // ========== TESTS DE VALIDACIÓN DE IDs ==========
+    //  TESTS DE VALIDACIÓN DE IDs
 
     @ParameterizedTest
     @NullSource
@@ -314,7 +314,7 @@ class OrderValidationTest {
         assertTrue(exception.getMessage().contains("El ID de la orden debe ser un número positivo"));
     }
 
-    // ========== MÉTODOS HELPER PARA ACCEDER A MÉTODOS PRIVADOS ==========
+    //  MÉTODOS HELPER PARA ACCEDER A MÉTODOS PRIVADOS
 
     private void invokeValidateCreateOrderRequest(CreateOrderRequest request) {
         try {
