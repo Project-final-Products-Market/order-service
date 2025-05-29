@@ -2,6 +2,7 @@ package com.project_final.order_service.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project_final.order_service.Dto.CreateOrderRequest;
+import com.project_final.order_service.exceptions.*;
 import com.project_final.order_service.model.Order;
 import com.project_final.order_service.service.OrderService;
 import org.junit.jupiter.api.BeforeEach;
@@ -69,29 +70,101 @@ class OrderControllerTest {
                 .andDo(print())
                 .andExpect(status().isCreated())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.id", is(1)))
-                .andExpect(jsonPath("$.userId", is(1)))
-                .andExpect(jsonPath("$.productId", is(1)))
-                .andExpect(jsonPath("$.quantity", is(2)))
-                .andExpect(jsonPath("$.totalPrice", is(2599.98)))
-                .andExpect(jsonPath("$.status", is("CONFIRMED")));
+                .andExpect(jsonPath("$.data.id", is(1)))
+                .andExpect(jsonPath("$.data.userId", is(1)))
+                .andExpect(jsonPath("$.data.productId", is(1)))
+                .andExpect(jsonPath("$.data.quantity", is(2)))
+                .andExpect(jsonPath("$.data.totalPrice", is(2599.98)))
+                .andExpect(jsonPath("$.data.status", is("CONFIRMED")));
 
         verify(orderService).createOrder(any(CreateOrderRequest.class));
     }
 
     @Test
-    @DisplayName("POST /api/orders - Should return 400 when order creation fails")
-    void createOrder_BadRequest() throws Exception {
+    @DisplayName("POST /api/orders - Should return 503 when user service fails")
+    void createOrder_UserServiceError() throws Exception {
         // Arrange
         when(orderService.createOrder(any(CreateOrderRequest.class)))
-                .thenThrow(new RuntimeException("Usuario no encontrado"));
+                .thenThrow(new UserServiceException(1L, "validateUser", "Usuario no encontrado"));
 
         // Act & Assert
         mockMvc.perform(post("/api/orders")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(createRequest)))
                 .andDo(print())
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.errorCode", is("EXTERNAL_SERVICE_ERROR")))
+                .andExpect(jsonPath("$.status", is(503)))
+                .andExpect(jsonPath("$.additionalInfo.userId", is(1)))
+                .andExpect(jsonPath("$.additionalInfo.operation", is("validateUser")));
+
+        verify(orderService).createOrder(any(CreateOrderRequest.class));
+    }
+
+    @Test
+    @DisplayName("POST /api/orders - Should return 503 when product service fails")
+    void createOrder_ProductServiceError() throws Exception {
+        // Arrange
+        when(orderService.createOrder(any(CreateOrderRequest.class)))
+                .thenThrow(new ProductServiceException(1L, "validateProduct", "Producto no encontrado"));
+
+        // Act & Assert
+        mockMvc.perform(post("/api/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andDo(print())
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.errorCode", is("EXTERNAL_SERVICE_ERROR")))
+                .andExpect(jsonPath("$.status", is(503)))
+                .andExpect(jsonPath("$.additionalInfo.productId", is(1)))
+                .andExpect(jsonPath("$.additionalInfo.operation", is("validateProduct")));
+
+        verify(orderService).createOrder(any(CreateOrderRequest.class));
+    }
+
+    @Test
+    @DisplayName("POST /api/orders - Should return 409 when insufficient stock")
+    void createOrder_InsufficientStock() throws Exception {
+        // Arrange
+        when(orderService.createOrder(any(CreateOrderRequest.class)))
+                .thenThrow(new InsufficientStockException(1L, 5, 2));
+
+        // Act & Assert
+        mockMvc.perform(post("/api/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andDo(print())
+                .andExpect(status().isConflict())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.errorCode", is("INSUFFICIENT_STOCK")))
+                .andExpect(jsonPath("$.status", is(409)))
+                .andExpect(jsonPath("$.additionalInfo.productId", is(1)))
+                .andExpect(jsonPath("$.additionalInfo.requestedQuantity", is(5)))
+                .andExpect(jsonPath("$.additionalInfo.availableStock", is(2)));
+
+        verify(orderService).createOrder(any(CreateOrderRequest.class));
+    }
+
+    @Test
+    @DisplayName("POST /api/orders - Should return 400 when validation fails")
+    void createOrder_ValidationError() throws Exception {
+        // Arrange
+        CreateOrderRequest invalidRequest = new CreateOrderRequest(null, 1L, 2);
+        when(orderService.createOrder(any(CreateOrderRequest.class)))
+                .thenThrow(new OrderValidationException("userId", null, "El ID del usuario es requerido"));
+
+        // Act & Assert
+        mockMvc.perform(post("/api/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidRequest)))
+                .andDo(print())
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.errorCode", is("ORDER_VALIDATION_ERROR")))
+                .andExpect(jsonPath("$.status", is(400)))
+                .andExpect(jsonPath("$.field", is("userId")));
 
         verify(orderService).createOrder(any(CreateOrderRequest.class));
     }
@@ -182,7 +255,7 @@ class OrderControllerTest {
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.status", is("DELIVERED")));
+                .andExpect(jsonPath("$.data.status", is("DELIVERED")));
 
         verify(orderService).updateOrderStatus(1L, Order.OrderStatus.DELIVERED);
     }
@@ -194,9 +267,51 @@ class OrderControllerTest {
         mockMvc.perform(put("/api/orders/1/status")
                         .param("status", "INVALID_STATUS"))
                 .andDo(print())
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.errorCode", is("ORDER_VALIDATION_ERROR")))
+                .andExpect(jsonPath("$.status", is(400)))
+                .andExpect(jsonPath("$.field", is("status")));
 
         verify(orderService, never()).updateOrderStatus(any(), any());
+    }
+
+    @Test
+    @DisplayName("PUT /api/orders/{id}/status - Should return 404 when order not found")
+    void updateOrderStatus_OrderNotFound() throws Exception {
+        // Arrange
+        when(orderService.updateOrderStatus(eq(999L), eq(Order.OrderStatus.DELIVERED)))
+                .thenThrow(new OrderNotFoundException(999L));
+
+        // Act & Assert
+        mockMvc.perform(put("/api/orders/999/status")
+                        .param("status", "DELIVERED"))
+                .andDo(print())
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.errorCode", is("ORDER_NOT_FOUND")))
+                .andExpect(jsonPath("$.status", is(404)));
+
+        verify(orderService).updateOrderStatus(999L, Order.OrderStatus.DELIVERED);
+    }
+
+    @Test
+    @DisplayName("PUT /api/orders/{id}/status - Should return 400 for invalid status transition")
+    void updateOrderStatus_InvalidTransition() throws Exception {
+        // Arrange
+        when(orderService.updateOrderStatus(eq(1L), eq(Order.OrderStatus.PENDING)))
+                .thenThrow(new OrderStatusException(1L, Order.OrderStatus.DELIVERED, Order.OrderStatus.PENDING));
+
+        // Act & Assert
+        mockMvc.perform(put("/api/orders/1/status")
+                        .param("status", "PENDING"))
+                .andDo(print())
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.errorCode", is("ORDER_STATUS_ERROR")))
+                .andExpect(jsonPath("$.status", is(400)));
+
+        verify(orderService).updateOrderStatus(1L, Order.OrderStatus.PENDING);
     }
 
     @Test
@@ -211,7 +326,43 @@ class OrderControllerTest {
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.status", is("CANCELLED")));
+                .andExpect(jsonPath("$.data.status", is("CANCELLED")));
+
+        verify(orderService).cancelOrder(1L);
+    }
+
+    @Test
+    @DisplayName("PUT /api/orders/{id}/cancel - Should return 404 when order not found")
+    void cancelOrder_OrderNotFound() throws Exception {
+        // Arrange
+        when(orderService.cancelOrder(999L))
+                .thenThrow(new OrderNotFoundException(999L));
+
+        // Act & Assert
+        mockMvc.perform(put("/api/orders/999/cancel"))
+                .andDo(print())
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.errorCode", is("ORDER_NOT_FOUND")))
+                .andExpect(jsonPath("$.status", is(404)));
+
+        verify(orderService).cancelOrder(999L);
+    }
+
+    @Test
+    @DisplayName("PUT /api/orders/{id}/cancel - Should return 400 when order cannot be cancelled")
+    void cancelOrder_CannotCancel() throws Exception {
+        // Arrange
+        when(orderService.cancelOrder(1L))
+                .thenThrow(new OrderCancellationException(1L, Order.OrderStatus.DELIVERED));
+
+        // Act & Assert
+        mockMvc.perform(put("/api/orders/1/cancel"))
+                .andDo(print())
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.errorCode", is("ORDER_CANCELLATION_ERROR")))
+                .andExpect(jsonPath("$.status", is(400)));
 
         verify(orderService).cancelOrder(1L);
     }
@@ -256,7 +407,10 @@ class OrderControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{ invalid json }"))
                 .andDo(print())
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.errorCode", is("BAD_REQUEST")))
+                .andExpect(jsonPath("$.status", is(400)));
 
         verify(orderService, never()).createOrder(any());
     }
@@ -276,5 +430,38 @@ class OrderControllerTest {
                 .andExpect(jsonPath("$", hasSize(1)));
 
         verify(orderService).getRecentOrders();
+    }
+
+    @Test
+    @DisplayName("GET /api/orders/status/{status} - Should return orders by status")
+    void getOrdersByStatus_Success() throws Exception {
+        // Arrange
+        List<Order> pendingOrders = Arrays.asList(testOrder);
+        when(orderService.getOrdersByStatus(eq(Order.OrderStatus.CONFIRMED))).thenReturn(pendingOrders);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/orders/status/CONFIRMED"))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].status", is("CONFIRMED")));
+
+        verify(orderService).getOrdersByStatus(eq(Order.OrderStatus.CONFIRMED));
+    }
+
+    @Test
+    @DisplayName("GET /api/orders/status/{status} - Should return 400 for invalid status")
+    void getOrdersByStatus_InvalidStatus() throws Exception {
+        // Act & Assert
+        mockMvc.perform(get("/api/orders/status/INVALID_STATUS"))
+                .andDo(print())
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.errorCode", is("ORDER_VALIDATION_ERROR")))
+                .andExpect(jsonPath("$.status", is(400)))
+                .andExpect(jsonPath("$.field", is("status")));
+
+        verify(orderService, never()).getOrdersByStatus(any(Order.OrderStatus.class));
     }
 }

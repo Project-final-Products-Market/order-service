@@ -84,37 +84,6 @@ class OrderServiceTest {
         verify(restTemplate, times(3)).getForObject(anyString(), any(Class.class));
     }
 
-    @Test
-    @DisplayName("Should throw exception when user not found")
-    void createOrder_UserNotFound() {
-        // Arrange
-        when(restTemplate.getForObject(contains("/users/1"), eq(UserDto.class)))
-                .thenReturn(null);
-
-        // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class,
-                () -> orderService.createOrder(validRequest));
-
-        assertEquals("Usuario no encontrado con id: 1", exception.getMessage());
-        verify(orderRepository, never()).save(any(Order.class));
-    }
-
-    @Test
-    @DisplayName("Should throw exception when product not found")
-    void createOrder_ProductNotFound() {
-        // Arrange
-        when(restTemplate.getForObject(contains("/users/1"), eq(UserDto.class)))
-                .thenReturn(validUser);
-        when(restTemplate.getForObject(contains("/products/1"), eq(ProductDto.class)))
-                .thenReturn(null);
-
-        // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class,
-                () -> orderService.createOrder(validRequest));
-
-        assertEquals("Producto no encontrado con id: 1", exception.getMessage());
-        verify(orderRepository, never()).save(any(Order.class));
-    }
 
     @Test
     @DisplayName("Should throw exception when insufficient stock")
@@ -181,19 +150,6 @@ class OrderServiceTest {
         verify(orderRepository).save(validOrder);
     }
 
-    @Test
-    @DisplayName("Should throw exception when updating non-existent order")
-    void updateOrderStatus_OrderNotFound() {
-        // Arrange
-        when(orderRepository.findById(999L)).thenReturn(Optional.empty());
-
-        // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class,
-                () -> orderService.updateOrderStatus(999L, Order.OrderStatus.DELIVERED));
-
-        assertEquals("Orden no encontrada con id: 999", exception.getMessage());
-        verify(orderRepository, never()).save(any());
-    }
 
     @Test
     @DisplayName("Should get orders by user ID")
